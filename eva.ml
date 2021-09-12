@@ -6,29 +6,39 @@
 
 exception EvalError of string
 
-module SMap = Map.Make(String)
-
 let errorf fmt = Printf.ksprintf (fun s -> raise (EvalError s)) fmt
 
 let show = Sexp.show
 
-type env = {
-  map: Sexp.t SMap.t;
-  parent: env option;
-}
+module Env = struct
+  module SMap = Map.Make(String)
 
-let make_env parent = {map = SMap.empty; parent }
+  type t = {
+    map: Sexp.t SMap.t;
+    parent: t option;
+  }
 
-let rec eval (env: env) (expr : Sexp.t)  =
+  let make parent = { parent; map = SMap.empty }
+
+  let rec find name env =
+    match SMap.find_opt name env.map, env.parent with
+    | (Some _) as value, _ -> value
+    | None, None -> None
+    | None, Some parent_env -> find name parent_env
+
+  let set name value env = { env with map = SMap.add name value env.map }
+end
+
+let rec eval (env: Env.t) (expr : Sexp.t)  =
   match expr with
   | (String _ | Number _) as atom -> env, atom
   | Symbol name ->
-    (match SMap.find_opt name env.map with
+    (match Env.find name env with
     | None -> errorf "Unrecognized variable: %s" name
     | Some value -> env, value)
   | List [Symbol "var"; Symbol name; e] ->
     let _, value = eval env e in
-    { env with map = SMap.add name value env.map }, value
+    Env.set name value env, value
   | List [Symbol ("+" | "-" | "*" | "/" as opname); e1; e2] ->
     let op =
       match opname with
@@ -46,7 +56,7 @@ let rec eval (env: env) (expr : Sexp.t)  =
 
 let eval' s =
   let folder (env, _value) exp = eval env exp in
-  let (_env, value) = Sexp.parse s |> List.fold_left folder (make_env None, Number 0.) in
+  let (_env, value) = Sexp.parse s |> List.fold_left folder (Env.make None, Number 0.) in
   value
 
 let cases = let open Sexp in [
