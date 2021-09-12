@@ -2,7 +2,11 @@
 
 ## Prerequisites
 
-Install [.NET Core SDK](https://dotnet.microsoft.com/download)
+    brew install opam
+    opam init
+    eval $(opam env)
+    opam switch create 4.12.0
+    opam install utop
 
 ## Links
 
