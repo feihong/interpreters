@@ -81,10 +81,10 @@ let rec parse_expr stream fn =
   match Stream.next stream with
   | exception Stream.Failure -> raise EOF
   | c when is_space c -> parse_expr stream fn
+  | c when is_symbol c -> fn (parse_symbol c stream)
   | '-' | '.' | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' as c ->
     fn (parse_number c stream)
   | '"' -> fn (parse_string stream)
-  | c when is_symbol c -> fn (parse_symbol c stream)
   | '(' -> parse_list stream [] fn
   | c -> errorf "Unexpected character: %c" c
 
