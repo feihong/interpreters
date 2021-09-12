@@ -26,7 +26,13 @@ module Env = struct
     | None, None -> None
     | None, Some parent_env -> find name parent_env
 
-  let set name value env = { env with map = SMap.add name value env.map }
+  let define name value env = { env with map = SMap.add name value env.map }
+
+  let rec set name value env =
+    match SMap.mem name env.map, env.parent with
+    | true, _ -> { env with map = SMap.add name value env.map }
+    | false, None -> errorf "Can't set undeclared variable %s" name
+    | false, Some parent_env -> set name value parent_env
 end
 
 let rec eval (env: Env.t) (expr : Sexp.t)  =
@@ -37,6 +43,9 @@ let rec eval (env: Env.t) (expr : Sexp.t)  =
     | None -> errorf "Unrecognized variable: %s" name
     | Some value -> env, value)
   | List [Symbol "var"; Symbol name; e] ->
+    let _, value = eval env e in
+    Env.define name value env, value
+  | List [Symbol "set"; Symbol name; e] ->
     let _, value = eval env e in
     Env.set name value env, value
   | List [Symbol ("+" | "-" | "*" | "/" as opname); e1; e2] ->
@@ -65,7 +74,9 @@ let cases = let open Sexp in [
   "(+ 1 5)", Number 6.;
   "(- (* 3 5) (/ 72 12))", Number 9.;
   "(var foo (+ 44 55))", Number 99.;
+  {|(var foo 3) foo|}, Number 3.;
   {|(var foo 3) (+ foo 5)|}, Number 8.;
+  {|(var foo 3) (set foo 8) foo|}, Number 8.;
 ]
 
 let () = cases |> List.iter (fun (s, value) -> assert (eval' s = value))
