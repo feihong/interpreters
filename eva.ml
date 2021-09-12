@@ -29,13 +29,14 @@ module Env = struct
   let define name value env = { env with map = SMap.add name value env.map }
 
   let rec set name value env =
+    print_endline name;
     match SMap.mem name env.map, env.parent with
     | true, _ -> { env with map = SMap.add name value env.map }
     | false, None -> errorf "Can't set undeclared variable %s" name
     | false, Some parent_env -> set name value parent_env
 end
 
-let rec eval (env: Env.t) (expr : Sexp.t)  =
+let rec eval (env: Env.t) (expr: Sexp.t)  =
   match expr with
   | (String _ | Number _) as atom -> env, atom
   | Symbol name ->
@@ -48,6 +49,10 @@ let rec eval (env: Env.t) (expr : Sexp.t)  =
   | List [Symbol "set"; Symbol name; e] ->
     let _, value = eval env e in
     Env.set name value env, value
+  | List (Symbol "begin" :: expr :: exprs) ->
+    let new_env = Env.make (Some env) in
+    let _env, value = eval_multi new_env expr exprs in
+    env, value
   | List [Symbol ("+" | "-" | "*" | "/" as opname); e1; e2] ->
     let op =
       match opname with
@@ -63,10 +68,15 @@ let rec eval (env: Env.t) (expr : Sexp.t)  =
     | e1, e2  -> errorf "%s operator didn't receive numeric operands: %s and %s" opname (show e1) (show e2))
   | e -> errorf "Invalid expression: %s" (Sexp.show e)
 
+and eval_multi (env: Env.t) (expr: Sexp.t) (exprs: Sexp.t list) =
+  let init = eval env expr in
+  List.fold_left (fun (env, _value) expr -> eval env expr) init exprs
+
 let eval' s =
-  let folder (env, _value) exp = eval env exp in
-  let (_env, value) = Sexp.parse s |> List.fold_left folder (Env.make None, Number 0.) in
-  value
+  match Sexp.parse s with
+  | [] -> errorf "Nothing to evaluate"
+  | expr :: exprs ->
+    eval_multi (Env.make None) expr exprs |> snd
 
 let cases = let open Sexp in [
   "101", Number 101.;
@@ -77,6 +87,16 @@ let cases = let open Sexp in [
   {|(var foo 3) foo|}, Number 3.;
   {|(var foo 3) (+ foo 5)|}, Number 8.;
   {|(var foo 3) (set foo 8) foo|}, Number 8.;
+  {|(begin (- 100 1))|}, Number 99.;
+  {|(var x 100)
+    (begin (var x 111))
+    x|}, Number 100.;
+  {|(var x 100)
+    (begin (set x 999))
+    x|}, Number 9.;
 ]
 
-let () = cases |> List.iter (fun (s, value) -> assert (eval' s = value))
+let () = cases |> List.iter (fun (s, value) ->
+  let computed = eval' s in
+  if computed <> value then Printf.printf "%s evaluated to %s <> %s\n" s (show computed) (show value)
+)
