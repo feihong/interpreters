@@ -5,6 +5,7 @@ type t =
   | Symbol of string
   | String of string
   | Number of float
+  | Bool of bool
   | List of t list
 
 let rec show t =
@@ -12,6 +13,7 @@ let rec show t =
   | Symbol s -> s
   | String s -> Printf.sprintf "%S" s
   | Number n -> string_of_float n
+  | Bool b -> string_of_bool b
   | List l -> "(" ^ (l |> List.map show |> String.concat " ") ^ ")"
 
 exception ParseError of string
@@ -57,7 +59,11 @@ let parse_symbol first_char stream =
     | Some c when is_symbol_body c ->
       Stream.junk stream;
       loop (c :: acc)
-    | None | Some _ -> Symbol (reverse_implode acc)
+    | None | Some _ ->
+      (match reverse_implode acc with
+      | "true" -> Bool true
+      | "false" -> Bool false
+      | s -> Symbol s)
   in loop [first_char]
 
 let parse_string stream =
