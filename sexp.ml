@@ -16,6 +16,13 @@ let rec show t =
   | Bool b -> string_of_bool b
   | List l -> "(" ^ (l |> List.map show |> String.concat " ") ^ ")"
 
+let equal a b =
+  match a, b with
+  | Symbol a, Symbol b | String a, String b -> String.equal a b
+  | Number a, Number b -> Float.equal a b
+  | Bool a, Bool b -> Bool.equal a b
+  | _, _ -> false
+
 exception ParseError of string
 
 exception EOF
