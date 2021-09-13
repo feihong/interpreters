@@ -29,11 +29,10 @@ module Env = struct
   let define name value env = { env with map = SMap.add name value env.map }
 
   let rec set name value env =
-    print_endline name;
     match SMap.mem name env.map, env.parent with
     | true, _ -> { env with map = SMap.add name value env.map }
     | false, None -> errorf "Can't set undeclared variable %s" name
-    | false, Some parent_env -> set name value parent_env
+    | false, Some parent_env -> { env with parent = Some (set name value parent_env) }
 end
 
 let rec eval (env: Env.t) (expr: Sexp.t)  =
@@ -50,9 +49,9 @@ let rec eval (env: Env.t) (expr: Sexp.t)  =
     let _, value = eval env e in
     Env.set name value env, value
   | List (Symbol "begin" :: expr :: exprs) ->
-    let new_env = Env.make (Some env) in
-    let _env, value = eval_multi new_env expr exprs in
-    env, value
+    let block_env = Env.make (Some env) in
+    let (block_env: Env.t), value = eval_multi block_env expr exprs in
+    Option.get block_env.parent, value
   | List [Symbol ("+" | "-" | "*" | "/" as opname); e1; e2] ->
     let op =
       match opname with
@@ -93,7 +92,7 @@ let cases = let open Sexp in [
     x|}, Number 100.;
   {|(var x 100)
     (begin (set x 999))
-    x|}, Number 9.;
+    x|}, Number 999.;
 ]
 
 let () = cases |> List.iter (fun (s, value) ->
