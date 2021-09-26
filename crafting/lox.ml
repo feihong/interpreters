@@ -6,16 +6,28 @@ let read_file f =
   close_in in_channel;
   Bytes.unsafe_to_string bytes
 
-let run s =
-  print_endline s
+let had_error = ref(false)
 
-let run_file file = run (read_file file)
+let report line where message =
+  Printf.eprintf "[line %d] Error%s: %s" line where message;
+  had_error := true
+
+let error line message =
+  report line "" message
+
+let run s =
+  print_endline s;
+
+let run_file file =
+  run (read_file file);
+  if !had_error then exit 65
 
 let run_prompt () =
   try
     while true do
       print_string "> ";
       run (read_line ())
+      had_error := false
     done
 with
     End_of_file -> print_endline "\nrun_prompt"
