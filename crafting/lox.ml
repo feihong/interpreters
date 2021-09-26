@@ -1,3 +1,4 @@
+#mod_use "error.ml"
 #mod_use "scanner.ml"
 
 let read_file f =
@@ -8,31 +9,23 @@ let read_file f =
   close_in in_channel;
   Bytes.unsafe_to_string bytes
 
-let had_error = ref(false)
-
-let report line where message =
-  Printf.eprintf "[line %d] Error%s: %s" line where message;
-  had_error := true
-
-let error line message = report line "" message
-
 let run source =
   let scanner = Scanner.make source in
-  let { tokens; _ }: Scanner.t = Scanner.scan_tokens scanner in
+  let tokens = Scanner.scan_tokens scanner in
   tokens |> List.iter (fun token ->
     print_endline (Scanner.Token.show token)
   )
 
 let run_file file =
   run (read_file file);
-  if !had_error then exit 65
+  if !Error.had_error then exit 65
 
 let run_prompt () =
   try
     while true do
       print_string "> ";
       run (read_line ());
-      had_error := false
+      Error.had_error := false
     done
 with
     End_of_file -> print_endline "\nrun_prompt"
