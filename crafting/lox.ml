@@ -1,3 +1,5 @@
+#mod_use "scanner.ml"
+
 let read_file f =
   let in_channel = open_in f in
   let size = in_channel_length in_channel in
@@ -12,11 +14,14 @@ let report line where message =
   Printf.eprintf "[line %d] Error%s: %s" line where message;
   had_error := true
 
-let error line message =
-  report line "" message
+let error line message = report line "" message
 
-let run s =
-  print_endline s;
+let run source =
+  let scanner = Scanner.make source in
+  let { tokens; _ }: Scanner.t = Scanner.scan_tokens scanner in
+  tokens |> List.iter (fun token ->
+    print_endline (Scanner.Token.show token)
+  )
 
 let run_file file =
   run (read_file file);
@@ -26,7 +31,7 @@ let run_prompt () =
   try
     while true do
       print_string "> ";
-      run (read_line ())
+      run (read_line ());
       had_error := false
     done
 with
